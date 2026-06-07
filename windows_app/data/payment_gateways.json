@@ -1,0 +1,273 @@
+{
+  "stripe": {
+    "name": "Stripe",
+    "signatures": [
+      "js.stripe.com",
+      "stripe.com/v3",
+      "stripe-js",
+      "data-stripe",
+      "STRIPE_PUBLISHABLE",
+      "pk_live_",
+      "pk_test_",
+      "checkout.stripe.com"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Stripe applique automatiquement 3DS/SCA (PSD2) en zone Europe via Radar/Authentication."
+  },
+  "payplug": {
+    "name": "PayPlug",
+    "signatures": [
+      "payplug.com",
+      "secure.payplug",
+      "api.payplug"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "PayPlug applique 3DS v2 par défaut sur tous les paiements éligibles."
+  },
+  "mollie": {
+    "name": "Mollie",
+    "signatures": [
+      "mollie.com",
+      "api.mollie",
+      "mollie-components"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Mollie applique 3DS v2 par défaut."
+  },
+  "adyen": {
+    "name": "Adyen",
+    "signatures": [
+      "adyen.com",
+      "checkoutshopper-live.adyen",
+      "adyencheckout",
+      "adyen-checkout"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Adyen applique 3DS v2 par défaut."
+  },
+  "paypal": {
+    "name": "PayPal",
+    "signatures": [
+      "paypal.com/sdk",
+      "paypalobjects.com",
+      "data-paypal",
+      "paypal-button"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "PayPal gère son propre flux d'authentification (équivalent 3DS)."
+  },
+  "lyra": {
+    "name": "Lyra / SystemPay",
+    "signatures": [
+      "systempay.fr",
+      "lyra-collect",
+      "scellius.fr",
+      "sogecommerce.com",
+      "payzen.eu"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Lyra (SystemPay, PayZen) applique 3DS v2 par défaut."
+  },
+  "stancer": {
+    "name": "Stancer",
+    "signatures": [
+      "stancer.com",
+      "api.stancer"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Stancer applique 3DS v2."
+  },
+  "checkout_com": {
+    "name": "Checkout.com",
+    "signatures": [
+      "checkout.com",
+      "cko.com",
+      "frames.checkout.com"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Checkout.com applique 3DS v2."
+  },
+  "braintree": {
+    "name": "Braintree",
+    "signatures": [
+      "braintreegateway",
+      "braintree-web",
+      "js.braintreegateway"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Braintree supporte 3DS v2 (PayPal company)."
+  },
+  "klarna": {
+    "name": "Klarna",
+    "signatures": [
+      "klarna.com",
+      "js.klarna.com",
+      "klarna-checkout"
+    ],
+    "supports_3ds": true,
+    "3ds_default": false,
+    "notes": "Klarna gère sa propre authentification."
+  },
+  "amazon_pay": {
+    "name": "Amazon Pay",
+    "signatures": [
+      "amazonpay",
+      "payments.amazon",
+      "amazon-pay-button"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Amazon Pay gère sa propre authentification forte."
+  },
+  "applepay": {
+    "name": "Apple Pay",
+    "signatures": [
+      "apple-pay",
+      "applepay",
+      "apple-pay-button"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Apple Pay = SCA biométrique (équivaut à 3DS)."
+  },
+  "googlepay": {
+    "name": "Google Pay",
+    "signatures": [
+      "google-pay",
+      "googlepay",
+      "pay.google.com"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Google Pay = SCA via Google."
+  },
+  "shopify_payments": {
+    "name": "Shopify Payments",
+    "signatures": [
+      "shopify.com",
+      "cdn.shopify.com",
+      "shop.app",
+      "shopify-payments"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Shopify Payments utilise Stripe en backend, 3DS v2 par défaut."
+  },
+  "woocommerce_legacy": {
+    "name": "WooCommerce (passerelle legacy)",
+    "signatures": [
+      "woocommerce-checkout",
+      "wc-checkout"
+    ],
+    "supports_3ds": false,
+    "3ds_default": false,
+    "notes": "Boutique WooCommerce détectée. À vérifier - peut utiliser passerelle sans 3DS si plugin obsolète."
+  },
+  "atos_sips": {
+    "name": "Atos SIPS / Worldline",
+    "signatures": [
+      "sips-atos",
+      "worldline.com",
+      "mercanet"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Atos SIPS / Worldline applique 3DS v2."
+  },
+  "monetico": {
+    "name": "Monetico (CIC/Crédit Mutuel)",
+    "signatures": [
+      "monetico-paiement",
+      "p.monetico-services"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Monetico applique 3DS v2."
+  },
+  "elavon": {
+    "name": "Elavon",
+    "signatures": [
+      "elavon.com",
+      "convergepay"
+    ],
+    "supports_3ds": true,
+    "3ds_default": false,
+    "notes": "Elavon supporte 3DS mais activation parfois manuelle."
+  },
+  "viva_wallet": {
+    "name": "Viva Wallet",
+    "signatures": [
+      "vivapayments.com",
+      "viva.com"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Viva Wallet applique 3DS v2."
+  },
+  "wix_payments": {
+    "name": "Wix Payments",
+    "signatures": [
+      "wix-code",
+      "wixapps.net",
+      "parastorage.com",
+      "static.wixstatic",
+      "wix-payments",
+      "wixsite.com"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Wix Payments utilise Stripe/Adyen en backend avec 3DS v2."
+  },
+  "squarespace": {
+    "name": "Squarespace (Stripe backend)",
+    "signatures": [
+      "squarespace.com",
+      "static1.squarespace",
+      "squarespace-cdn"
+    ],
+    "supports_3ds": true,
+    "3ds_default": true,
+    "notes": "Squarespace utilise Stripe avec 3DS v2."
+  },
+  "prestashop": {
+    "name": "PrestaShop (à vérifier)",
+    "signatures": [
+      "prestashop",
+      "/modules/ps_",
+      "data-prestashop"
+    ],
+    "supports_3ds": false,
+    "3ds_default": false,
+    "notes": "PrestaShop détecté - 3DS dépend du module de paiement installé (à investiguer)."
+  },
+  "magento": {
+    "name": "Magento / Adobe Commerce (à vérifier)",
+    "signatures": [
+      "magento",
+      "/mage/",
+      "data-mage-init"
+    ],
+    "supports_3ds": false,
+    "3ds_default": false,
+    "notes": "Magento détecté - 3DS dépend du module de paiement."
+  },
+  "razorpay": {
+    "name": "Razorpay",
+    "signatures": [
+      "razorpay.com",
+      "checkout.razorpay"
+    ],
+    "supports_3ds": true,
+    "3ds_default": false,
+    "notes": "Razorpay (Inde) - 3DS optionnel selon configuration."
+  }
+}
