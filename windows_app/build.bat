@@ -1,62 +1,63 @@
 @echo off
 REM Build script pour 3DS Hunter - genere un .exe Windows autonome
-REM Force le repertoire courant a celui du script (resout les pbs de double-clic)
 cd /d "%~dp0"
 
 echo ============================================
-echo  3DS Hunter - Build Windows EXE
+echo  3DS Hunter v1.1.0 - Build Windows EXE
 echo ============================================
 echo Dossier de travail : %CD%
 echo.
 
-REM Verifie que requirements.txt est present
 if not exist "requirements.txt" (
-    echo [ERREUR] requirements.txt introuvable dans : %CD%
-    echo Assure-toi que build.bat est bien dans le dossier 'windows_app'
-    echo a cote de main.py et requirements.txt
+    echo [ERREUR] requirements.txt introuvable.
     pause
     exit /b 1
 )
 
-REM Verifie que main.py est present
 if not exist "main.py" (
     echo [ERREUR] main.py introuvable.
     pause
     exit /b 1
 )
 
-REM Verifie Python
 where python >nul 2>nul
 if errorlevel 1 (
     echo [ERREUR] Python n'est pas installe ou pas dans le PATH.
     echo Telecharge Python 3.10+ sur https://www.python.org/downloads/
-    echo IMPORTANT : coche "Add Python to PATH" pendant l'installation.
     pause
     exit /b 1
 )
 
-echo [1/4] Installation des dependances...
+echo [1/5] Installation des dependances...
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 if errorlevel 1 (
-    echo [ERREUR] Echec de l'installation des dependances.
+    echo [ERREUR] Echec installation dependances.
     pause
     exit /b 1
 )
 
-REM Desinstalle pandas/numpy s'ils trainent d'une installation precedente
 echo.
-echo Nettoyage pandas/numpy (non utilises) ...
+echo Nettoyage pandas/numpy si presents...
 python -m pip uninstall -y pandas numpy >nul 2>nul
 
 echo.
-echo [2/4] Nettoyage des anciens builds...
+echo [2/5] Installation de Chromium pour Deep Scan (~150 MB, premiere fois seulement)...
+python -m playwright install chromium
+if errorlevel 1 (
+    echo [AVERTISSEMENT] Echec install Chromium. Le Deep Scan ne fonctionnera pas.
+    echo Tu pourras installer plus tard via le bouton Deep Scan dans l'app.
+    timeout /t 3
+)
+
+echo.
+echo [3/5] Nettoyage anciens builds...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
 if exist "3DS_Hunter.spec" del "3DS_Hunter.spec"
 
 echo.
-echo [3/4] Compilation avec PyInstaller (cela peut prendre 2-3 min)...
+echo [4/5] Compilation PyInstaller (2-5 min)...
 python -m PyInstaller ^
     --name "3DS_Hunter" ^
     --onefile ^
@@ -72,6 +73,8 @@ python -m PyInstaller ^
     --hidden-import lxml._elementpath ^
     --hidden-import bs4 ^
     --hidden-import fake_useragent ^
+    --hidden-import playwright ^
+    --hidden-import playwright.sync_api ^
     --exclude-module pandas ^
     --exclude-module numpy ^
     --exclude-module matplotlib ^
@@ -81,21 +84,23 @@ python -m PyInstaller ^
     main.py
 
 if errorlevel 1 (
-    echo.
     echo [ERREUR] La compilation a echoue.
     pause
     exit /b 1
 )
 
 echo.
-echo [4/4] Termine !
+echo [5/5] Termine !
 echo.
 echo ============================================
 echo  Build reussi !
-echo  L'executable : %CD%\dist\3DS_Hunter.exe
+echo  Executable : %CD%\dist\3DS_Hunter.exe
+echo.
+echo  NOTE : Playwright Chromium est telecharge dans
+echo  %%USERPROFILE%%\AppData\Local\ms-playwright\
+echo  Le .exe l'utilisera depuis cet emplacement.
 echo ============================================
 echo.
 
-REM Ouvre le dossier
 explorer dist
 pause

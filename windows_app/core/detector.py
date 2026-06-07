@@ -27,13 +27,43 @@ KEYWORDS_3DS = [
     "american express safekey"
 ]
 
-# Pages susceptibles de mentionner 3DS
+# Signatures techniques 3DS universelles (présentes sur les sites avec 3DS actif,
+# indépendamment de la passerelle). Très forte corrélation avec 3DS v2 activé.
+THREE_DS_TECHNICAL_SIGNATURES = [
+    "cardinalcommerce.com",        # Visa Cardinal Commerce, fournisseur 3DS leader
+    "centinelapi",                  # Cardinal Centinel API (3DS)
+    "ds.netcetera.com",             # Netcetera Directory Server (3DS v2)
+    "3dsecure2", "3ds2.",
+    "threeds2",
+    "threedsserver", "threeds-server",
+    "acs.modirum.com",              # Modirum ACS (3DS v2)
+    "acs.acculynk", "acs.cybersource",
+    "challengewindowsize",          # JS variable 3DS v2 challenge
+    "threedsmethodurl", "threedsmethoddata",
+    "cb_3ds", "_3ds_", "three_d_secure",
+    "stripe3ds",                    # Stripe 3DS JS
+    "stripe.js/v3",                 # Stripe v3 = 3DS v2 obligatoire
+    "adyen3ds2",
+    "checkout-3ds",
+    "mpi.scellius", "mpi.systempay",
+    "directoryserver",
+    "cybersource.com/3ds",
+]
+
+# Pages susceptibles de mentionner 3DS (CGV / légales)
 LEGAL_PAGES = [
     "/cgv", "/cgu", "/mentions-legales", "/conditions-generales",
-    "/conditions-de-vente", "/paiement", "/payment", "/checkout",
-    "/securite", "/security", "/faq", "/aide", "/help",
+    "/conditions-de-vente", "/securite", "/security", "/faq", "/aide", "/help",
     "/conditions", "/legal", "/terms", "/privacy",
     "/politique-confidentialite", "/cookies"
+]
+
+# Pages de tunnel d'achat (où le 3DS est techniquement visible)
+CHECKOUT_PAGES = [
+    "/cart", "/panier", "/checkout", "/commande", "/paiement", "/payment",
+    "/caisse", "/order", "/finaliser", "/validate-order",
+    "/cart.html", "/checkout.html", "/index.php?controller=cart",
+    "/index.php?controller=order", "/?page_id=cart",
 ]
 
 # E-commerce indicators
@@ -109,6 +139,41 @@ def detect_3ds_keywords(html):
     return found
 
 
+def detect_3ds_technical(html):
+    """Cherche des signatures techniques 3DS universelles (cardinalcommerce, etc.)."""
+    if not html:
+        return []
+    html_lower = html.lower()
+    found = []
+    for sig in THREE_DS_TECHNICAL_SIGNATURES:
+        if sig.lower() in html_lower:
+            found.append(sig)
+    return found
+
+
+def detect_payment_iframes(html, base_url):
+    """Détecte les iframes de paiement chargées (forte indication de PSP utilisée)."""
+    if not html:
+        return []
+    soup = BeautifulSoup(html, "lxml")
+    iframes = []
+    psp_hosts = [
+        "stripe.com", "paypal.com", "payplug", "mollie", "adyen",
+        "systempay", "lyra", "payzen", "scellius", "sogecommerce",
+        "monetico", "worldline", "mercanet", "atos",
+        "checkout.com", "braintree", "vivapayments", "stancer",
+        "shopify.com", "klarna", "amazonpay", "applepay", "googlepay",
+        "cardinalcommerce", "netcetera",
+    ]
+    for ifr in soup.find_all("iframe", src=True):
+        src = ifr["src"].lower()
+        for host in psp_hosts:
+            if host in src:
+                iframes.append({"host": host, "src": ifr["src"][:200]})
+                break
+    return iframes
+
+
 def is_ecommerce(html):
     """Détermine si le site est un e-commerce."""
     if not html:
@@ -132,18 +197,30 @@ def find_legal_links(html, base_url):
                 full = urljoin(base_url, a["href"])
                 links.add(full)
                 break
-    # Limit
     return list(links)[:6]
 
 
-def analyze_site(url, deep=True, max_legal_pages=4):
+def build_checkout_urls(base_url):
+    """Génère des URLs candidates pour les pages de tunnel d'achat."""
+    urls = []
+    parsed = urlparse(base_url)
+    root = f"{parsed.scheme}://{parsed.netloc}"
+    for path in CHECKOUT_PAGES:
+        urls.append(root + path)
+    return urls
+
+
+def analyze_site(url, deep=True, max_legal_pages=4, scan_checkout=True):
     """
     Analyse un site et retourne un dictionnaire détaillé :
     {
       url, final_url, status, is_ecommerce,
       gateways: [...],
       keywords_found: [...],
+      tech_signatures: [...],     # signatures techniques 3DS
+      iframes: [...],              # iframes paiement
       legal_pages_checked: [...],
+      checkout_pages_checked: [...],
       score_3ds: int 0-100,
       verdict: '3DS Probable' | 'Sans 3DS Probable' | 'Incertain' | 'Pas e-commerce',
       reason: str
@@ -156,7 +233,10 @@ def analyze_site(url, deep=True, max_legal_pages=4):
         "is_ecommerce": False,
         "gateways": [],
         "keywords_found": [],
+        "tech_signatures": [],
+        "iframes": [],
         "legal_pages_checked": [],
+        "checkout_pages_checked": [],
         "score_3ds": 0,
         "verdict": "Erreur",
         "reason": ""
@@ -172,34 +252,54 @@ def analyze_site(url, deep=True, max_legal_pages=4):
         result["reason"] = f"Code HTTP: {status}"
         return result
 
-    # E-commerce ?
     ecom = is_ecommerce(html)
     result["is_ecommerce"] = ecom
 
-    # Passerelles sur homepage
+    # Analyse homepage
     gateways = detect_payment_gateways(html)
-
-    # Keywords sur homepage
     kws = detect_3ds_keywords(html)
+    tech_sigs = detect_3ds_technical(html)
+    iframes = detect_payment_iframes(html, final_url)
 
-    # Aller chercher dans pages légales / checkout
+    # Deep scan : pages légales (CGV)
     if deep:
         legal_links = find_legal_links(html, final_url)
         for link in legal_links[:max_legal_pages]:
             sub_html, sub_status, _ = _fetch(link, session, timeout=8)
             if sub_html:
                 result["legal_pages_checked"].append(link)
-                # Plus de passerelles ?
                 for gw in detect_payment_gateways(sub_html):
                     if not any(g["id"] == gw["id"] for g in gateways):
                         gateways.append(gw)
-                # Plus de keywords ?
                 for kw in detect_3ds_keywords(sub_html):
                     if kw not in kws:
                         kws.append(kw)
+                for sig in detect_3ds_technical(sub_html):
+                    if sig not in tech_sigs:
+                        tech_sigs.append(sig)
+
+    # Scan des pages de tunnel d'achat (cart, checkout, panier...)
+    if scan_checkout and ecom:
+        checkout_urls = build_checkout_urls(final_url)
+        # Limite à 4 pour rester rapide
+        for c_url in checkout_urls[:4]:
+            c_html, c_status, c_final = _fetch(c_url, session, timeout=8)
+            if c_html and c_status == 200 and len(c_html) > 500:
+                result["checkout_pages_checked"].append(c_final)
+                for gw in detect_payment_gateways(c_html):
+                    if not any(g["id"] == gw["id"] for g in gateways):
+                        gateways.append(gw)
+                for sig in detect_3ds_technical(c_html):
+                    if sig not in tech_sigs:
+                        tech_sigs.append(sig)
+                for ifr in detect_payment_iframes(c_html, c_final):
+                    if not any(i["host"] == ifr["host"] for i in iframes):
+                        iframes.append(ifr)
 
     result["gateways"] = gateways
     result["keywords_found"] = kws
+    result["tech_signatures"] = tech_sigs
+    result["iframes"] = iframes
 
     # Scoring
     score = 0
@@ -207,39 +307,52 @@ def analyze_site(url, deep=True, max_legal_pages=4):
 
     if not ecom:
         result["verdict"] = "Pas e-commerce"
-        result["reason"] = "Aucun indicateur d'e-commerce détecté (pas de panier, produits, etc.)"
+        result["reason"] = "Aucun indicateur d'e-commerce détecté"
         return result
 
-    # Passerelles modernes avec 3DS par défaut
     modern_gw = [g for g in gateways if g["3ds_default"]]
     legacy_gw = [g for g in gateways if not g["3ds_default"] and g["supports_3ds"]]
     no_3ds_gw = [g for g in gateways if not g["supports_3ds"]]
 
     if modern_gw:
-        score += 60
-        reasons.append(f"Passerelle moderne avec 3DS par défaut: {', '.join(g['name'] for g in modern_gw)}")
+        score += 55
+        reasons.append(f"Passerelle moderne 3DS par défaut: {', '.join(g['name'] for g in modern_gw[:3])}")
     if legacy_gw:
         score += 20
-        reasons.append(f"Passerelle supportant 3DS (config requise): {', '.join(g['name'] for g in legacy_gw)}")
+        reasons.append(f"Passerelle 3DS optionnel: {', '.join(g['name'] for g in legacy_gw[:2])}")
     if no_3ds_gw:
         score -= 10
-        reasons.append(f"Passerelle sans 3DS par défaut: {', '.join(g['name'] for g in no_3ds_gw)}")
+
+    # 🆕 BOOST : signatures techniques 3DS universelles (très forte preuve)
+    if tech_sigs:
+        score += 25
+        reasons.append(f"Signatures techniques 3DS v2 détectées: {', '.join(tech_sigs[:3])}")
+
+    # 🆕 BOOST : iframes PSP chargées sur checkout
+    if iframes:
+        score += 10
+        reasons.append(f"Iframes paiement chargées: {', '.join(i['host'] for i in iframes[:3])}")
 
     if kws:
-        score += 25
-        reasons.append(f"Mentions 3DS trouvées: {', '.join(kws[:3])}")
+        score += 15
+        reasons.append(f"Mentions 3DS dans CGV: {', '.join(kws[:3])}")
     else:
         score -= 5
-        reasons.append("Aucune mention 3DS dans CGV/mentions légales")
 
-    # HTTPS bonus
     if final_url.startswith("https://"):
         score += 5
 
-    # Si aucune passerelle détectée du tout sur e-commerce -> suspect
-    if not gateways:
+    if not gateways and not iframes:
         score -= 20
-        reasons.append("Aucune passerelle de paiement reconnue (custom/obsolète ?)")
+        reasons.append("Aucune passerelle ni iframe paiement détectée (custom/obsolète ?)")
+
+    # 🆕 Si checkout scanné mais aucune trace 3DS → suspect (sauf si passerelle moderne déjà détectée)
+    if scan_checkout and result["checkout_pages_checked"] and not tech_sigs and not iframes:
+        if not modern_gw:
+            score -= 10
+            reasons.append("Pages checkout accessibles mais aucune trace technique 3DS")
+        # Si passerelle moderne déjà détectée → léger doute, mais pas de pénalité majeure
+        # (le 3DS est chargé via JS dynamique, invisible au scan statique)
 
     score = max(0, min(100, score))
     result["score_3ds"] = score

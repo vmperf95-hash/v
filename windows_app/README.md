@@ -10,8 +10,15 @@
 - ✍️ **Saisie manuelle** ou import d'une liste d'URLs (.txt / .csv)
 - 🛡️ **Détection 3DS multi-méthodes** avec score de probabilité 0-100 :
   - Identification de la passerelle de paiement (Stripe, PayPlug, Mollie, Adyen, PayPal, Lyra/SystemPay, Monetico, Atos SIPS, Stancer, Checkout.com, Shopify Payments, Klarna...)
+  - **🆕 Signatures techniques 3DS universelles** (cardinalcommerce.com, ds.netcetera.com, stripe3ds, etc.)
+  - **🆕 Scan des pages /cart, /checkout, /panier** pour détecter iframes paiement
   - Recherche de mots-clés 3DS / SCA dans CGV et mentions légales
-  - Détection de site e-commerce vs vitrine
+- 🔬 **🆕 Deep Scan avec Playwright** (mode haute fiabilité ~90-95%) :
+  - Ouvre vraiment le site dans un Chrome headless
+  - Ajoute automatiquement un produit au panier
+  - Atteint la page de checkout réelle
+  - Capture les **requêtes réseau 3DS** (cardinalcommerce, acsUrl, challengeUrl...)
+  - Détecte les **iframes de paiement** chargées dynamiquement par JS
 - 📧 **Extraction automatique des contacts** : emails, téléphones, formulaire de contact, réseaux sociaux
 - 📊 **Export CSV / Excel** multi-onglets (Tous / Prospects / Avec 3DS)
 - 🎨 Interface graphique moderne (CustomTkinter, thème sombre)

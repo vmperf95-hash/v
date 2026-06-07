@@ -19,10 +19,11 @@ from core.detector import analyze_site
 from core.contact_extractor import extract_contacts
 from core.scraper import discover_ecommerce_sites
 from core.exporter import export_csv, export_excel
+from core.deep_scanner import deep_scan_site, is_playwright_installed, install_chromium
 
 
 APP_NAME = "3DS Hunter - Prospection B2B"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # Couleurs du thème custom
 COLOR_BG = "#0d1117"
@@ -157,6 +158,60 @@ class App(ctk.CTk):
     def stop_scan(self):
         self.scan_stop_flag.set()
 
+    # 🆕 Deep Scan
+    def run_deep_scan(self, target_url):
+        """Lance un Deep Scan Playwright sur une URL (depuis carte résultats)."""
+        # Vérif Playwright
+        ok, msg = is_playwright_installed()
+        if not ok:
+            answer = messagebox.askyesno(
+                "Deep Scan : installation requise",
+                f"Le Deep Scan nécessite Chromium (Playwright).\n\n"
+                f"État actuel : {msg}\n\n"
+                f"Voulez-vous télécharger Chromium maintenant (~150 MB, 2-5 min) ?\n"
+                f"C'est une installation à faire une seule fois."
+            )
+            if not answer:
+                return
+            # Install dans un thread
+            threading.Thread(target=self._install_chromium_worker,
+                             args=(target_url,), daemon=True).start()
+            return
+
+        # Trouve le résultat correspondant et flag
+        for r in self.results:
+            if r.get("url") == target_url:
+                r["_deep_scanning"] = True
+        self.pages["results"].refresh()
+
+        # Lance le scan en thread
+        threading.Thread(target=self._deep_scan_worker,
+                         args=(target_url,), daemon=True).start()
+
+    def _install_chromium_worker(self, then_scan_url=None):
+        self.event_queue.put(("deep_log", "📥 Installation de Chromium en cours (peut prendre 2-5 min)..."))
+
+        def progress(msg):
+            self.event_queue.put(("deep_log", msg))
+
+        success, msg = install_chromium(progress_cb=progress)
+        if success:
+            self.event_queue.put(("deep_install_done", (True, msg, then_scan_url)))
+        else:
+            self.event_queue.put(("deep_install_done", (False, msg, None)))
+
+    def _deep_scan_worker(self, url):
+        def progress(msg):
+            self.event_queue.put(("deep_log", f"[{url[:40]}] {msg}"))
+
+        try:
+            deep_result = deep_scan_site(url, progress_cb=progress)
+            self.event_queue.put(("deep_done", (url, deep_result)))
+        except Exception as e:
+            self.event_queue.put(("deep_done", (url, {"deep_verdict": "Erreur",
+                                                      "deep_reason": str(e)[:200],
+                                                      "errors": [str(e)[:200]]})))
+
     def _scan_worker(self, urls, extract_contacts_flag):
         total = len(urls)
         self.event_queue.put(("scan_start", total))
@@ -264,6 +319,40 @@ class App(ctk.CTk):
         elif event == "discover_done":
             urls = data
             page.log(f"✅ Découverte terminée : {len(urls)} site(s) trouvé(s).", color=COLOR_SUCCESS)
+        # 🆕 Deep Scan events
+        elif event == "deep_log":
+            self.pages["scan"].log(data)
+        elif event == "deep_install_done":
+            success, msg, then_url = data
+            if success:
+                messagebox.showinfo("Installation réussie",
+                                    "Chromium installé avec succès ! Le Deep Scan va démarrer.")
+                if then_url:
+                    self.run_deep_scan(then_url)
+            else:
+                messagebox.showerror("Installation échouée", msg)
+        elif event == "deep_done":
+            url, deep_result = data
+            # Met à jour le résultat correspondant
+            for r in self.results:
+                if r.get("url") == url:
+                    r["deep_scan"] = deep_result
+                    r["_deep_scanning"] = False
+                    # Met à jour le verdict global si le deep scan est tranchant
+                    if "Confirmé" in deep_result.get("deep_verdict", ""):
+                        if "Sans" in deep_result["deep_verdict"]:
+                            r["verdict"] = "Sans 3DS Probable"
+                            r["score_3ds"] = max(0, min(r.get("score_3ds", 0), 30))
+                        else:
+                            r["verdict"] = "3DS Probable"
+                            r["score_3ds"] = max(r.get("score_3ds", 0), 85)
+                    break
+            self.pages["scan"].log(
+                f"🔬 Deep Scan terminé pour {url} → {deep_result.get('deep_verdict')} "
+                f"({deep_result.get('confidence', '?')})"
+            )
+            self.pages["results"].refresh()
+            self._update_stats()
 
     def _update_stats(self):
         total = len(self.results)
@@ -728,6 +817,60 @@ class ResultsPage(ctk.CTkFrame):
                 text_color=COLOR_TEXT_DIM, font=ctk.CTkFont(size=11),
                 anchor="w", justify="left", wraplength=900,
             ).pack(fill="x", pady=(4, 0))
+
+        # 🆕 Deep Scan section
+        deep = r.get("deep_scan")
+        if deep:
+            # Affichage du résultat deep scan
+            deep_box = ctk.CTkFrame(card, fg_color="#0a1f1a", corner_radius=8)
+            deep_box.pack(fill="x", padx=18, pady=(0, 12))
+            dv = deep.get("deep_verdict", "?")
+            dscore = deep.get("deep_score", 0)
+            dconf = deep.get("confidence", "?")
+            if "Confirmé" in dv and "Sans" in dv:
+                d_color = COLOR_DANGER
+                d_emoji = "🎯"
+            elif "Confirmé" in dv:
+                d_color = COLOR_SUCCESS
+                d_emoji = "✅"
+            elif "Probable" in dv:
+                d_color = COLOR_WARNING
+                d_emoji = "⚠️"
+            else:
+                d_color = COLOR_TEXT_DIM
+                d_emoji = "❓"
+
+            ctk.CTkLabel(
+                deep_box, text=f"🔬 DEEP SCAN  {d_emoji} {dv}  •  Score {dscore}/100  •  Fiabilité {dconf}",
+                text_color=d_color, font=ctk.CTkFont(size=12, weight="bold"),
+                anchor="w", justify="left",
+            ).pack(fill="x", padx=12, pady=(8, 2))
+
+            d_reason = deep.get("deep_reason", "")
+            if d_reason:
+                ctk.CTkLabel(
+                    deep_box, text=d_reason,
+                    text_color=COLOR_TEXT_DIM, font=ctk.CTkFont(size=11),
+                    anchor="w", justify="left", wraplength=900,
+                ).pack(fill="x", padx=12, pady=(0, 8))
+
+        # Bouton Deep Scan (uniquement pour e-commerce, pas en cours)
+        if r.get("is_ecommerce") and not r.get("_deep_scanning"):
+            btn_row = ctk.CTkFrame(card, fg_color="transparent")
+            btn_row.pack(fill="x", padx=18, pady=(0, 12))
+            btn_text = "🔬 Deep Scan (navigateur, ~30s)" if not deep else "🔄 Refaire Deep Scan"
+            ctk.CTkButton(
+                btn_row, text=btn_text,
+                command=lambda url=r["url"]: self.app.run_deep_scan(url),
+                fg_color="#1f6feb", hover_color="#388bfd",
+                text_color="#fff", font=ctk.CTkFont(size=12, weight="bold"),
+                corner_radius=8, height=32, width=240,
+            ).pack(side="left")
+        elif r.get("_deep_scanning"):
+            ctk.CTkLabel(
+                card, text="🔬 Deep Scan en cours... patience (15-45s)",
+                text_color="#1f6feb", font=ctk.CTkFont(size=12, weight="bold"),
+            ).pack(padx=18, pady=(0, 12))
 
 
 class ExportPage(ctk.CTkFrame):
