@@ -1,6 +1,6 @@
 @echo off
 REM Build script pour 3DS Hunter - genere un .exe Windows autonome
-REM Usage : double-clic sur build.bat OU `build.bat` dans cmd
+REM Usage : double-clic sur build.bat
 
 echo ============================================
 echo  3DS Hunter - Build Windows EXE
@@ -37,10 +37,17 @@ python -m PyInstaller ^
     --name "3DS_Hunter" ^
     --onefile ^
     --windowed ^
+    --noconfirm ^
+    --clean ^
     --add-data "data;data" ^
     --hidden-import customtkinter ^
     --hidden-import PIL ^
     --hidden-import PIL._tkinter_finder ^
+    --hidden-import openpyxl ^
+    --hidden-import lxml ^
+    --hidden-import lxml._elementpath ^
+    --hidden-import bs4 ^
+    --hidden-import fake_useragent ^
     --collect-all customtkinter ^
     --collect-all fake_useragent ^
     main.py
