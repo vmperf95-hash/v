@@ -1,17 +1,36 @@
 @echo off
 REM Build script pour 3DS Hunter - genere un .exe Windows autonome
-REM Usage : double-clic sur build.bat
+REM Force le repertoire courant a celui du script (resout les pbs de double-clic)
+cd /d "%~dp0"
 
 echo ============================================
 echo  3DS Hunter - Build Windows EXE
 echo ============================================
+echo Dossier de travail : %CD%
 echo.
+
+REM Verifie que requirements.txt est present
+if not exist "requirements.txt" (
+    echo [ERREUR] requirements.txt introuvable dans : %CD%
+    echo Assure-toi que build.bat est bien dans le dossier 'windows_app'
+    echo a cote de main.py et requirements.txt
+    pause
+    exit /b 1
+)
+
+REM Verifie que main.py est present
+if not exist "main.py" (
+    echo [ERREUR] main.py introuvable.
+    pause
+    exit /b 1
+)
 
 REM Verifie Python
 where python >nul 2>nul
 if errorlevel 1 (
     echo [ERREUR] Python n'est pas installe ou pas dans le PATH.
     echo Telecharge Python 3.10+ sur https://www.python.org/downloads/
+    echo IMPORTANT : coche "Add Python to PATH" pendant l'installation.
     pause
     exit /b 1
 )
@@ -24,6 +43,11 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+REM Desinstalle pandas/numpy s'ils trainent d'une installation precedente
+echo.
+echo Nettoyage pandas/numpy (non utilises) ...
+python -m pip uninstall -y pandas numpy >nul 2>nul
 
 echo.
 echo [2/4] Nettoyage des anciens builds...
@@ -48,6 +72,10 @@ python -m PyInstaller ^
     --hidden-import lxml._elementpath ^
     --hidden-import bs4 ^
     --hidden-import fake_useragent ^
+    --exclude-module pandas ^
+    --exclude-module numpy ^
+    --exclude-module matplotlib ^
+    --exclude-module scipy ^
     --collect-all customtkinter ^
     --collect-all fake_useragent ^
     main.py
@@ -64,7 +92,7 @@ echo [4/4] Termine !
 echo.
 echo ============================================
 echo  Build reussi !
-echo  L'executable se trouve dans : dist\3DS_Hunter.exe
+echo  L'executable : %CD%\dist\3DS_Hunter.exe
 echo ============================================
 echo.
 
